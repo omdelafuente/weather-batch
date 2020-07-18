@@ -1,0 +1,12 @@
+databaseChangeLog:
+- changeSet:
+    id: create_batch_metadata_schema
+    author: omdelafuente
+    changes:
+    - sqlFile:
+          encoding: utf8
+          endDelimiter: \nGO
+          path: classpath:/org/springframework/batch/core/schema-postgresql.sql
+          relativeToChangelogFile: false
+          splitStatements: true
+          stripComments: true

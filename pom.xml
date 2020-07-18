@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <packaging>jar</packaging>
+
+    <parent>
+        <!-- Your own application should inherit from spring-boot-starter-parent -->
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.2.6.RELEASE</version>
+    </parent>
+
+    <groupId>com.omdelafuente.weather</groupId>
+    <artifactId>batch</artifactId>
+    <name>weather-batch</name>
+    <description>Spring Boot Batch to handle weather observations</description>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <java.version>11</java.version>
+        <docker-maven-plugin.postgres.image_name>postgres:9.6.6-alpine</docker-maven-plugin.postgres.image_name>
+        <docker-daemon.url.host>localhost</docker-daemon.url.host>
+        <docker-maven-plugin.postgres.internal_port>5432</docker-maven-plugin.postgres.internal_port>
+        <docker-maven-plugin.postgres.instance>weather</docker-maven-plugin.postgres.instance>
+        <docker-maven-plugin.postgres.password>0wc3lbmu</docker-maven-plugin.postgres.password>
+        <docker-maven-plugin.postgres.user>weather_batch</docker-maven-plugin.postgres.user>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-batch</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.liquibase</groupId>
+            <artifactId>liquibase-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.batch</groupId>
+            <artifactId>spring-batch-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables combine.children="append">
+                        <spring.datasource.url>
+                            jdbc:postgresql://${docker-daemon.url.host}:5432/${docker-maven-plugin.postgres.instance}
+                        </spring.datasource.url>
+                        <spring.datasource.username>${docker-maven-plugin.postgres.user}</spring.datasource.username>
+                        <spring.datasource.password>${docker-maven-plugin.postgres.password}
+                        </spring.datasource.password>
+                    </systemPropertyVariables>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>io.fabric8</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
+                <version>0.33.0</version>
+                <configuration>
+                    <dockerHost>tcp://localhost:2375</dockerHost> <!-- Workaround for plugin hanging on start goal on Windows 10. Docker TCP connection must be opened -->
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>start-db-container</id>
+                        <phase>pre-integration-test</phase>
+                        <goals>
+                            <goal>start</goal>
+                        </goals>
+                        <configuration>
+                            <images>
+                                <image>
+                                    <name>${docker-maven-plugin.postgres.image_name}</name>
+                                    <alias>weather-db</alias>
+                                    <run>
+                                        <ports>
+                                            <port>5432:${docker-maven-plugin.postgres.internal_port}</port>
+                                        </ports>
+                                        <wait>
+                                            <log>(?s)PostgreSQL init process complete; ready for start up</log>
+                                            <time>20000</time>
+                                        </wait>
+                                        <volumes>
+                                            <bind>
+                                                <volume>src/test/resources/initdb:/docker-entrypoint-initdb.d</volume>
+                                            </bind>
+                                        </volumes>
+                                        <env>
+                                            <POSTGRES_DB>${docker-maven-plugin.postgres.instance}</POSTGRES_DB>
+                                            <POSTGRES_USER>${docker-maven-plugin.postgres.user}</POSTGRES_USER>
+                                            <POSTGRES_PASSWORD>${docker-maven-plugin.postgres.password}
+                                            </POSTGRES_PASSWORD>
+                                        </env>
+                                    </run>
+                                </image>
+                            </images>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>stop-db-container</id>
+                        <phase>post-integration-test</phase>
+                        <goals>
+                            <goal>stop</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>
